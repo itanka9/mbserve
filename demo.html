@@ -1,0 +1,98 @@
+<?doctype html>
+<html>
+    <head>
+        <script src='https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.js'></script>
+        <link href='https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.css' rel='stylesheet' />        
+        <style>
+            html, body {
+                margin: 0;
+                padding: 0;
+            }
+        </style>
+    </head>    
+<body>
+    <div id='map' style='width: 100vw; height: 100vh;'></div>
+    <script>
+        fetch('http://%HOST%/meta')
+            .then(r => r.json())
+            .then(meta => {
+                const map = new maplibregl.Map({
+                    container: 'map',
+                    style: inferStyle(meta),
+                    center: meta.center ?? [0, 0], 
+                    zoom: meta.minzoom ?? 0
+                });
+            });
+
+            function inferStyle(meta) {
+                const layers = [{
+                    "id": "background",
+                    "type": "background",
+                    "paint": {
+                        "background-color": "#27a6cc"
+                    },
+                    "filter": [
+                        "all"
+                    ],
+                    "layout": {
+                        "visibility": "visible"
+                    },
+                    "maxzoom": 24
+                }];
+                for (const vl of meta.vector_layers) {
+                    const layerColor = getRandomColor();
+                    layers.push({
+                        "id": vl.id + "-boundary",
+                        "type": "line",
+                        "paint": {
+                            "line-color": layerColor,
+                            "line-width": 1,
+                        },
+                        "layout": {
+                            "line-cap": "round",
+                            "line-join": "round",
+                            "visibility": "visible"
+                        },
+                        "source": "mbserve",
+                        "maxzoom": 24,
+                        "source-layer": vl.id
+                    })
+                }
+
+                return {
+                    "id": "bp",
+                    "name": "BluePrint",
+                    "zoom": 0.8619833357855968,
+                    "pitch": 0,
+                    "center": [
+                        17.65431710431244,
+                        32.954120326746775
+                    ],
+                    "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+                    "layers": layers,
+                    "bearing": 0,
+                    "sources": {
+                        "mbserve": {
+                            "url": "http://%HOST%/meta",
+                            "type": "vector"
+                        }
+                    },
+                    "version": 8,
+                    "metadata": {}
+                }
+            }
+
+            function getRandomColor() {
+                var loLetters = '0123456789ABCDEF';
+                var hiLetters = 'BCDEF';
+                var color = [0, 0, 0, 0, 0, 0];
+                for (var i = 0; i < 3; i++) {
+                    color[i * 2] = hiLetters[Math.floor(Math.random() * 5)];
+                    color[i * 2 + 1] = loLetters[Math.floor(Math.random() * 16)];
+                }
+                return '#' + color.join('');
+            }
+        </script>
+    </body>
+</html>
+

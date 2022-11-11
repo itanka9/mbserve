@@ -1,0 +1,28 @@
+{
+  "name": "mbserve",
+  "version": "1.0.0",
+  "description": "Tiny .mbtiles server / previewer",
+  "main": "index.js",
+  "bin": "index.js",
+  "type": "module",
+  "files": [
+    "index.js",
+    "demo.html"
+  ],
+  "scripts": {
+    "build": "esbuild src/index.ts --outfile=index.js",
+    "start": "npm run build && node index",
+    "pub": "npm run build && npm publish"
+  },
+  "keywords": ["mapbox", "mbtiles"],
+  "author": "Michel Beloshitsky <itano@yandex.ru>",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^18.11.9",
+    "esbuild": "^0.15.13",
+    "typescript": "^4.8.4"
+  },
+  "dependencies": {
+    "@mapbox/mbtiles": "^0.12.1"
+  }
+}
