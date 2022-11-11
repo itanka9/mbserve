@@ -1,6 +1,6 @@
 # mbserve - tiny *.mbtiles server / previewer
 
-![preview](https://github.com/itanka9/mbserve/blob/master/preview.png?raw=true)
+![preview](https://github.com/itanka9/mbserve/blob/main/preview.png?raw=true)
 
 Usage: 
 
