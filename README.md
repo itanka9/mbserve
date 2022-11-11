@@ -1,7 +1,5 @@
 # mbserve - tiny *.mbtiles server / previewer
 
-![preview](https://github.com/itanka9/mbserve/blob/main/preview.png?raw=true)
-
 Usage: 
 
 ```
@@ -10,17 +8,19 @@ npx mbserve <tileset>.mbtiles
 
 ## Preview
 
-After running mbserve go to http://localhost:8080 and you see tileset preview. This preview is based on layers description in tileset metainfo and does not use any specific style so do not expect production quality.
+Go to http://localhost:8080 for preview. This preview is based on layers description in tileset metainfo and does not use any specific styling. So do not expect production quality.
 
-## Server
+![preview](https://github.com/itanka9/mbserve/blob/main/preview.png?raw=true)
 
-After running mbserve you can grab vector tiles from:
+## Vector tiles server
+
+You can grab vector tiles from:
 
 ```
 http://localhost:8080/tile/{z}/{x}/{y}
 ```
 
-and metainfo (tiles.json) from 
+and metainfo (`tiles.json`) from 
 
 ```
 http://localhost:8080/meta
