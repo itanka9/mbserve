@@ -1,6 +1,6 @@
 {
   "name": "mbserve",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Tiny .mbtiles server / previewer",
   "main": "index.js",
   "bin": "index.js",
