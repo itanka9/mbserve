@@ -26,6 +26,7 @@
     "typescript": "^4.8.4"
   },
   "dependencies": {
-    "@mapbox/mbtiles": "^0.12.1"
+    "@mapbox/mbtiles": "^0.12.1",
+    "minimist": "^1.2.7"
   }
 }
