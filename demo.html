@@ -8,23 +8,122 @@
                 margin: 0;
                 padding: 0;
             }
+
+            .layers-menu {
+                position: absolute;
+                z-index: 10;
+                top: 40px;
+                right: 0;
+                margin: 16px;
+                background-color: black;
+                color: #eee;
+                font-family: sans-serif;
+                font-size: 8pt;
+                user-select: none !important;
+            }
+
+            .layer-settings, .layers-top {
+                padding: 2px 8px;
+                display: flex;
+                align-items: center;
+                border-bottom: solid 1px #333;
+            }
+
+            .layers-top {
+                justify-content: center;
+                color: black;
+            }
+
+            .drag-hovered {
+                border-bottom: solid 1px orange;
+            }
+
+            .layer-drag {
+                background-color: black;
+                color: #999;
+                font-family: sans-serif;
+                font-size: 8pt;
+                cursor: grabbing;
+            }
+
+            .layer-settings .dragee {
+                display: inline-flex;
+                background-color: #333;
+                width: 6px;
+                height: 12px;
+                margin-right: 4px;
+                cursor: grab;
+            }
+
+            .layer-settings .color {
+                display: inline-flex;
+                width: 12px;
+                height: 12px;
+                margin: 0 8px;
+            }
+
+            .layer-settings .title {
+                display: inline-flex;
+                width: 120px;
+            }
+
+            .layer-settings .labelText-select {
+                visibility: hidden;
+            }
+
+            .layer-symbol .labelText-select {
+                visibility: visible;
+            }
+
+            .buttons {
+                position: absolute;
+                top: 0;
+                right: 0;
+                z-index: 10;
+                margin: 16px;
+            }
         </style>
     </head>    
 <body>
     <div id='map' style='width: 100vw; height: 100vh;'></div>
     <script>
+        let config = {};
+        let order = [];
+        let map = null;
+        let tilesMeta = null;
+
+        let dragging = false;
+
         fetch('http://%HOST%/meta')
             .then(r => r.json())
             .then(meta => {
-                const map = new maplibregl.Map({
+                tilesMeta = meta;
+                config = inferConfig(meta);
+                map = new maplibregl.Map({
                     container: 'map',
-                    style: inferStyle(meta),
+                    style: makeStyle(meta, config),
                     center: meta.center ?? [0, 0], 
                     zoom: meta.minzoom ?? 0
                 });
+                document.body.appendChild(makeMenu(meta, config));
+                document.body.appendChild(makeButtons());
             });
 
-            function inferStyle(meta) {
+            function inferConfig(meta) {
+                const config = {};
+                for (const vl of meta.vector_layers) {
+                    config[vl.id] = {
+                        hidden: false,
+                        type: 'line',
+                        color: getRandomColor(),
+                        textField: ''
+                    }
+                    order.push(vl.id);
+                }
+                return config;
+            }
+
+            function makeStyle(meta, config) {
                 const layers = [{
                     "id": "background",
                     "type": "background",
@@ -39,24 +138,73 @@
                     },
                     "maxzoom": 24
                 }];
+                const vlMap = {}
                 for (const vl of meta.vector_layers) {
-                    const layerColor = getRandomColor();
-                    layers.push({
-                        "id": vl.id + "-boundary",
-                        "type": "line",
-                        "paint": {
-                            "line-color": layerColor,
-                            "line-width": 1,
-                        },
-                        "layout": {
-                            "line-cap": "round",
-                            "line-join": "round",
-                            "visibility": "visible"
-                        },
-                        "source": "mbserve",
-                        "maxzoom": 24,
-                        "source-layer": vl.id
-                    })
+                    vlMap[vl.id] = vl;
+                }
+                for (const id of order) {
+                    const layerConfig = config[id];
+                    const vl = vlMap[id];
+                    if (layerConfig.hidden) {
+                        continue;
+                    }
+                    let layerSpec = null;
+                    if (layerConfig.type === 'line') {
+                        layerSpec =                     {
+                            "id": vl.id,
+                            "type": "line",
+                            "paint": {
+                                "line-color": layerConfig.color,
+                                "line-width": 1,
+                            },
+                            "layout": {
+                                "line-cap": "round",
+                                "line-join": "round",
+                                "visibility": "visible"
+                            },
+                            "source": "mbserve",
+                            "maxzoom": 24,
+                            "source-layer": vl.id
+                        };
+                    } else if (layerConfig.type === 'fill') {
+                        layerSpec =                     {
+                            "id": vl.id,
+                            "type": "fill",
+                            "paint": {
+                                "fill-color": layerConfig.color,
+                            },
+                            "layout": {
+                                "visibility": "visible"
+                            },
+                            "source": "mbserve",
+                            "maxzoom": 24,
+                            "source-layer": vl.id
+                        };
+                    } else if (layerConfig.type === 'symbol') {
+                        layerSpec =                     {
+                            "id": vl.id,
+                            "type": "symbol",
+                            "paint": {
+                                "text-color": layerConfig.color,
+                                "text-halo-color": "#999",
+                                "text-halo-width": 1
+                            },
+                            "layout": {
+                                "text-field": `{${layerConfig.textField}}`,
+                                "text-font": [
+                                    "Noto Sans Regular"
+                                ],
+                                "text-size": 12,
+                                "visibility": "visible"
+                            },
+                            "source": "mbserve",
+                            "maxzoom": 24,
+                            "source-layer": vl.id
+                        };
+                    }
+                    if (layerSpec !== null) {
+                        layers.push(layerSpec);
+                    }
                 }
 
                 return {
@@ -92,6 +240,173 @@
                 }
                 return '#' + color.join('');
             }
+
+            function makeMenu(meta, config) {
+                const elements = [
+                    '<div class="layers-top drag-target" onmouseover="onMouseOver(event)" onmouseout="onMouseOut(event)">top</div>'
+                ]
+                for (const vl of meta.vector_layers) {
+                    const layerConfig = config[vl.id];
+                    const layerType = layerConfig.type;
+                    elements.push(
+                        `<div class="layer-settings drag-target layer-${layerType}" data-id="${vl.id}" onmouseover="onMouseOver(event)" onmouseout="onMouseOut(event)">
+                            <span class="dragee" onmousedown="startDrag(event)" ondragstart="() => false"></span>
+                            <input type="checkbox" checked="${layerConfig.hidden ? '' : 'checked'}" oninput="toggleVisible(event, '${vl.id}')">
+                            <span class="color" onclick="updateColor(event, '${vl.id}')" style="background: ${layerConfig.color}"></span>
+                            <span class="title" title="${vl.id}">${vl.id}</span>
+                            ${makeSelect('layerType', vl.id, ['line', 'fill', 'symbol'], layerType)}
+                            ${makeSelect('labelText', vl.id, Object.keys(vl.fields), layerConfig.textField)}
+                        </div>`
+                    )
+                }
+                const menu = document.createElement('div');
+                menu.className = 'layers-menu';
+                menu.innerHTML = elements.join('');
+                return menu;
+            }
+
+            function makeButtons () {
+                const div = document.createElement('div');
+                div.className = 'buttons';
+                div.innerHTML = `
+                    <button onclick="downloadStyle()">Download Style</button>
+                `;
+                return div;
+            }
+
+            function makeSelect (name, id, optionValues, selected) {
+                const options = []
+                for (const opt of optionValues) {
+                    options.push(`<option value="${opt}" ${selected === opt ? 'selected' : ''}>${opt}</option>`);
+                }
+                return `<select name="${name}" class="${name}-select" onchange="updateSelect(event, '${id}', '${name}')">${options.join('')}</select>`;
+            }
+
+            function toggleVisible (ev, id) {
+                const layerConfig = config[id];
+                if (!layerConfig) {
+                    console.error('no layer config for id=', id);
+                    return;
+                }
+                layerConfig.hidden = !layerConfig.hidden;
+                if (map === null) {
+                    console.error('map is null');
+                    return;
+                }
+                map.setLayoutProperty(id, 'visibility', layerConfig.hidden ? 'none' : 'visible');
+            }
+
+            function updateColor (ev, id) {
+                const layerConfig = config[id];
+                let newColor = prompt('Enter color HEX');
+                if (newColor[0] !== '#') {
+                    newColor = '#' + newColor;
+                }
+                layerConfig.color = newColor;
+                ev.target.style.background = newColor;
+                updateStyle();
+            }
+
+            function updateSelect (ev, id, type) {
+                const layerConfig = config[id];
+                const value = ev.target.value;
+                if (type === 'layerType') {
+                    const settingsEl = ev.target.parentElement;
+                    settingsEl.classList.remove('layer-' + layerConfig.type);
+                    layerConfig.type = value;
+                    settingsEl.classList.add('layer-' + layerConfig.type);
+                    updateStyle();
+                } else if (type === 'labelText') {
+                    layerConfig.textField = value;
+                    map.setLayoutProperty(id, 'text-field', `{${value}}`);
+                }
+            }
+
+            function downloadStyle () {
+                const data = JSON.stringify(makeStyle(tilesMeta, config), null, 4);
+                const blob = new Blob([data], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                download(url, 'style.json');
+            }
+
+            function reorderLayers () {
+                order = [];
+                for (ch of document.querySelector('.layers-menu').children) {
+                    if (ch.dataset.id) {
+                        order.push(ch.dataset.id)
+                    }
+                }
+                updateStyle();
+            }
+
+            function updateStyle () {
+                const newStyle = makeStyle(tilesMeta, config);
+                map.setStyle(newStyle);
+            }
+
+            function onMouseOver (event) {
+                const el = event.target;
+                if (!dragging || !el || !el.classList.contains('drag-target')) {
+                    return;
+                }
+                event.target.classList.add('drag-hovered');
+            }
+
+            function onMouseOut (event) {
+                event.target.classList.remove('drag-hovered');
+            }
+
+            function startDrag (event) {
+                const layerSettings = event.target.parentElement;
+                const dragItem = document.createElement('div');
+                dragItem.className = 'layer-settings layer-drag';
+                dragItem.innerHTML = layerSettings.innerHTML;
+
+                dragItem.style.position = 'absolute';
+                dragItem.style.zIndex = 1000;
+                document.body.append(dragItem);
+
+                moveAt(event.pageX, event.pageY);
+
+                dragging = true;
+
+                function moveAt(pageX, pageY) {
+                    dragItem.style.left = (pageX + 5) + 'px';
+                    dragItem.style.top = (pageY + 5) + 'px';
+                }
+
+                function onMouseMove(event) {
+                    moveAt(event.pageX, event.pageY);
+                }
+
+                document.addEventListener('mousemove', onMouseMove);
+
+                document.body.onmouseup = function(event) {
+                    if (!dragging) {
+                        return;
+                    }
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.body.onmouseup = null;
+                    document.body.removeChild(dragItem);
+                    dragging = false;
+
+                    const targetEl = event.target;
+                    if (!targetEl || !targetEl.classList.contains('drag-target')) {
+                        return;
+                    }
+                    targetEl.parentElement.insertBefore(layerSettings, targetEl.nextSibling)
+                    reorderLayers();
+                };
+            };
+
+            function download (path, filename) {
+                const anchor = document.createElement('a');
+                anchor.href = path;
+                anchor.download = filename;
+                document.body.appendChild(anchor);
+                anchor.click();
+                document.body.removeChild(anchor);
+            }; 
         </script>
     </body>
 </html>
